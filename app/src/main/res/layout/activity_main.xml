@@ -23,6 +23,13 @@
         android:gravity="center"
         android:textSize="20sp"/>
 
+    <TextView
+        android:id="@+id/show"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+
+
+
 <!--    <ScrollView-->
 <!--        android:layout_width="match_parent"-->
 <!--        android:layout_height="match_parent">-->
