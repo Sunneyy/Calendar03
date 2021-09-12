@@ -8,12 +8,13 @@ import java.util.Date;
 public class DateUtils {
     //日期格式转换
     public static String DateConvert(String str) {
+        SimpleDateFormat dateFormat=new SimpleDateFormat("yyyy-MM-dd");
         Date date = null;
         try {
-            date = new SimpleDateFormat("yyyy-MM-dd").parse(str);
+            date = dateFormat.parse(str);
         } catch (ParseException e) {
             e.printStackTrace();
         }
-        return new SimpleDateFormat("yyyy年MM月dd日").format(date);
+        return dateFormat.format(date);
     }
 }

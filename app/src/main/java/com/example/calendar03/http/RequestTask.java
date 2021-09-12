@@ -1,37 +1,30 @@
 package com.example.calendar03.http;
 
-import android.icu.util.Output;
-import android.os.Handler;
-import android.util.Log;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.example.calendar03.gson.BaseResult;
-import com.example.calendar03.gson.CalendarData;
-import com.example.calendar03.http.ResponseListener;
 import com.example.calendar03.http.util.HttpUrlRequest;
+import com.example.calendar03.http.util.ThreadPoolUtil;
 import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 
-import java.io.IOException;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-
 import java.util.Map;
 
 /**
  * 输入：请求信息（url,method,params）
  * 输出：请求结果（状态码，信息，数据）
  */
-
 public class RequestTask<Output> implements Runnable {
     private String method;
     private String url;
-    private String result;
     private Map<String, String> paramMap;
-    private ResponseListener<Output> responseListener;
+
     private int id;
+    private BaseResult<Output> apiResult; // 请求成功
+    private Exception exception; // 请求失败
+    private ResponseListener<Output> responseListener;
 
 
     public RequestTask(String method, String url, Map<String, String> paramMap) {
@@ -52,33 +45,47 @@ public class RequestTask<Output> implements Runnable {
         this.responseListener = responseListener;
     }
 
-//    public ResponseListener<Output> getResponseListener() {
-//        return responseListener;
-//    }
+    /**
+     * 通知task中的Listener
+     */
+    public void notifyResponseListener() {
+        if (responseListener == null) {
+            return;
+        }
+        if (apiResult != null) {
+            if (apiResult.getError_code() == 0) {
+                responseListener.onSuccess(apiResult.getResult());
+            } else {
+                responseListener.onFailure(new HttpException(apiResult.getError_code(), apiResult.getReason()));
+            }
+        } else {
+            responseListener.onFailure(exception);
+        }
+    }
 
 
     @Override
     public void run() {
-//        try {
+        try {
+            // Step1: 获取http结果
+            String httpResult = null;
             if ("GET".equals(method)) {
-                try {
-                    result = HttpUrlRequest.Request(url);
-                } catch (IOException e) {
-                    Log.i("tag", "GET ERROR");
-                }
+                httpResult = HttpUrlRequest.Request(url);
             } else if ("POST".equals(method)) {
-                try {
-                    result = HttpUrlRequest.Request(url, paramMap);
-                } catch (IOException e) {
-                    Log.i("tag", "POST ERROR");
-                }
+                httpResult = HttpUrlRequest.Request(url, paramMap);
             }
+            // Step2：解析http结果
             if (responseListener != null) {
                 Type type = new ParameterizedType() {
                     @NonNull
                     @Override
                     public Type[] getActualTypeArguments() {
-                        return new Type[0];
+                        // 获取泛型接口，获取的类型必定为带泛型参数的类型
+                        ParameterizedType ltype = (ParameterizedType) responseListener.getClass().getGenericInterfaces()[0];
+                        // 获取具体的参数类型
+                        Type atype = ltype.getActualTypeArguments()[0];
+                        System.out.println(atype);
+                        return new Type[]{atype};
                     }
 
                     @NonNull
@@ -94,21 +101,16 @@ public class RequestTask<Output> implements Runnable {
                     }
                 };
 
-
-                //Type type1 = ((ParameterizedType)responseListener.getClass().getGenericSuperclass()).getActualTypeArguments()[0];
-//                Type responseType = new TypeToken<BaseResult<CalendarData>>() {
-//                }.getType();
                 Gson gson = new Gson();
-                BaseResult<Output> jsonResult = gson.fromJson(result, type);
-                responseListener.onSuccess(jsonResult);
+                this.apiResult = gson.fromJson(httpResult, type);
             }
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//            if (responseListener == null) {
-//                responseListener.onFailure(e);
-//            }
-//        }
+        } catch (Exception e) {
+            e.printStackTrace();
+            this.exception = e;
+        } finally {
+            if (responseListener != null) {
+                ThreadPoolUtil.getInstance().dispatcher(this);
+            }
+        }
     }
-
-
 }

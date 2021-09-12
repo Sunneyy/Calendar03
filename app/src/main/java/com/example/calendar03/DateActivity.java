@@ -5,6 +5,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.example.calendar03.gson.BaseResult;
 import com.example.calendar03.gson.CalendarData;
@@ -29,7 +30,6 @@ public class DateActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_date);
         initView();
         Intent intent=getIntent();
         String date=intent.getStringExtra("date");
@@ -37,23 +37,26 @@ public class DateActivity extends AppCompatActivity {
         String appKey=ConfigUtils.getValueFromFile(DateActivity.this,fileName,"appKey");
         paramMap.put("date", date);
         paramMap.put("key", appKey);
-        ThreadPoolUtil.getInstance().request(new RequestTask<CalendarData>("POST", url, paramMap),new ResponseListener<CalendarData>(){
+        RequestTask<CalendarData> task = new RequestTask<>("POST", url, paramMap);
+        task.setResponseListener(new ResponseListener<CalendarData>(){
             @Override
-            public void onSuccess(BaseResult<CalendarData> result) {
-                greg_calendar.setText(DateUtils.DateConvert(result.getResult().getData().getDate())+"  "+result.getResult().getData().getWeekday());
-                lunar_calendar.setText(result.getResult().getData().getLunarYear()+result.getResult().getData().getLunar());
-                suit.setText(result.getResult().getData().getSuit().replace(".","、"));
-                avoid.setText(result.getResult().getData().getAvoid().replace(".","、"));
+            public void onSuccess(CalendarData result) {
+                greg_calendar.setText(DateUtils.DateConvert(result.getData().getDate())+"  "+result.getData().getWeekday());
+                lunar_calendar.setText(result.getData().getLunarYear()+result.getData().getLunar());
+                suit.setText(result.getData().getSuit().replace(".","、"));
+                avoid.setText(result.getData().getAvoid().replace(".","、"));
             }
             @Override
             public void onFailure(Exception e) {
-
+                Toast.makeText(DateActivity.this, e.getMessage(), Toast.LENGTH_LONG).show();
             }
         });
+        ThreadPoolUtil.getInstance().request(task);
 
     }
 
     private void initView() {
+        setContentView(R.layout.activity_date);
         greg_calendar=findViewById(R.id.greg_calendar);
         lunar_calendar=findViewById(R.id.lunar_calendar);
         suit=findViewById(R.id.suit);
